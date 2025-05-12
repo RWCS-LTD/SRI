@@ -93,7 +93,7 @@ def calculate_sri(df):
 
     return sri_data
 
-# === Plot SRI, Volatility, and BTC Price ===
+# Plot SRI, Volatility, and BTC Price
 def plot_sri(btc_df, sri_df):
     plt.figure(figsize=(12, 15))
 
@@ -103,6 +103,12 @@ def plot_sri(btc_df, sri_df):
         color = 'green' if sri_df['SRI'].iloc[i] >= 1 else 'red'
         plt.plot(sri_df.index[i:i+2], sri_df['SRI'].iloc[i:i+2], color=color, linewidth=2)
     plt.axhline(1, color='gray', linestyle='--')
+    legend_elements = [
+        Line2D([0], [0], color='green', lw=2, label='SRI (Above Benchmark)'),
+        Line2D([0], [0], color='red', lw=2, label='SRI (Below Benchmark)'),
+        Line2D([0], [0], color='gray', linestyle='--', lw=2, label='Benchmark (1)')
+    ]
+    plt.legend(handles=legend_elements)
     plt.title('Statistical Reliability Index (SRI)')
     plt.ylabel('SRI')
 
@@ -110,7 +116,10 @@ def plot_sri(btc_df, sri_df):
     plt.subplot(3, 1, 2)
     plt.plot(sri_df.index, sri_df['SRI_Volatility'], label='SRI Volatility', color='purple', linewidth=2)
     plt.axhline(chop_threshold, color='red', linestyle='--', label='Chop Threshold')
-    plt.fill_between(sri_df.index, sri_df['SRI_Volatility'], where=sri_df['Chop'], color='orange', alpha=0.3, label='Chop Mode')
+    plt.fill_between(
+        sri_df.index, sri_df['SRI_Volatility'], 
+        where=sri_df['Chop'], color='orange', alpha=0.3, label='Chop Mode'
+    )
     plt.title('SRI Volatility')
     plt.ylabel('Volatility')
     plt.legend()
@@ -121,11 +130,11 @@ def plot_sri(btc_df, sri_df):
     plt.title('Asset Price (1D)')
     plt.ylabel('Price (USD)')
     plt.legend(['Asset Price'])
+
+    # Display the plots in Streamlit
     st.pyplot(plt)
 
-# === Main Logic with Update Button ===
-st.title("Statistical Reliability Index (SRI) Dashboard")
-
+# === Update Chart Button ===
 if st.sidebar.button("Update Chart"):
     st.write("Fetching and calculating SRI data...")
     btc_df = fetch_btc_data(ASSET, TF, Bars_to_Fetch)
@@ -136,3 +145,15 @@ if st.sidebar.button("Update Chart"):
         plot_sri(btc_df, sri_df)
     else:
         st.warning("No data available to display. Please check your settings.")
+
+# === Main App Logic ===
+st.title("Statistical Reliability Index (SRI) Dashboard")
+btc_df = fetch_btc_data()
+
+if not btc_df.empty:
+    sri_df = calculate_sri(btc_df)
+    st.write("### SRI Data (Last 5 rows)")
+    st.dataframe(sri_df.tail())
+    plot_sri(btc_df, sri_df)
+else:
+    st.warning("No data available to display.")
