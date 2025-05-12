@@ -63,26 +63,39 @@ def calculate_sri(df):
 
 # === Plot SRI, Volatility, and BTC Price ===
 def plot_sri(btc_df, sri_df):
-    plt.figure(figsize=(12, 15))
-    plt.subplot(3, 1, 1)
+    # Create a figure and axes with subplots
+    fig, ax = plt.subplots(3, 1, figsize=(12, 15))
+
+    # Plot SRI with Dynamic Coloring
     for i in range(len(sri_df) - 1):
         color = 'green' if sri_df['SRI'].iloc[i] >= 1 else 'red'
-        plt.plot(sri_df.index[i:i+2], sri_df['SRI'].iloc[i:i+2], color=color, linewidth=2)
-    plt.axhline(1, color='gray', linestyle='--')
-    plt.title('Statistical Reliability Index (SRI)')
-    plt.ylabel('SRI')
+        ax[0].plot(sri_df.index[i:i+2], sri_df['SRI'].iloc[i:i+2], color=color, linewidth=2)
+    ax[0].axhline(1, color='gray', linestyle='--')
+    ax[0].set_title('Statistical Reliability Index (SRI)')
+    ax[0].set_ylabel('SRI')
 
-    plt.subplot(3, 1, 2)
-    plt.plot(sri_df.index, sri_df['SRI_Volatility'], color='purple', linewidth=2)
-    plt.axhline(chop_threshold, color='red', linestyle='--')
-    plt.title('SRI Volatility')
-    plt.ylabel('Volatility')
+    # SRI Volatility Plot
+    ax[1].plot(sri_df.index, sri_df['SRI_Volatility'], label='SRI Volatility', color='purple', linewidth=2)
+    ax[1].axhline(chop_threshold, color='red', linestyle='--', label='Chop Threshold')
+    ax[1].fill_between(
+        sri_df.index, sri_df['SRI_Volatility'],
+        where=sri_df['Chop'], color='orange', alpha=0.3, label='Chop Mode'
+    )
+    ax[1].set_title('SRI Volatility')
+    ax[1].set_ylabel('Volatility')
+    ax[1].legend()
 
-    plt.subplot(3, 1, 3)
-    plt.plot(btc_df.index, btc_df['close'], color='black', linestyle='--')
-    plt.title('Asset Price (1D)')
-    plt.ylabel('Price (USD)')
-    st.pyplot(plt)
+    # Asset Price Plot
+    ax[2].plot(btc_df.index, btc_df['close'], label='Asset Price', color='black', linestyle='--')
+    ax[2].set_title('Asset Price (1D)')
+    ax[2].set_ylabel('Price (USD)')
+    ax[2].legend()
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+
+    # Display the plot using Streamlit
+    st.pyplot(fig)
 
 # === Sidebar for User Inputs ===
 st.sidebar.title("SRI Configuration")
