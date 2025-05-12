@@ -32,13 +32,13 @@ info = Info(constants.MAINNET_API_URL)
 
 # === Fetch BTC Data from 1D Chart ===
 @st.cache_data
-def fetch_btc_data(interval=TF, days=Bars_to_Fetch):
+def fetch_btc_data(asset, interval, days):
     end = int(datetime.now(timezone.utc).timestamp() * 1000)
     start = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
     try:
-        candles = info.candles_snapshot(ASSET, interval=interval, startTime=start, endTime=end)
+        candles = info.candles_snapshot(asset, interval=interval, startTime=start, endTime=end)
         if not candles:
-            st.error(f"No candle data [{interval}]")
+            st.error(f"No candle data for {asset} [{interval}]")
             return pd.DataFrame()
 
         df = pd.DataFrame(candles)
@@ -48,7 +48,7 @@ def fetch_btc_data(interval=TF, days=Bars_to_Fetch):
         df = df[["open", "high", "low", "close"]].astype(float).dropna()
         return df
     except Exception as e:
-        st.error(f"Error fetching BTC data: {str(e)}")
+        st.error(f"Error fetching {asset} data: {str(e)}")
         return pd.DataFrame()
 
 # === Statistical Calculations ===
