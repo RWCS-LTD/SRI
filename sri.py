@@ -12,6 +12,7 @@ st.set_page_config(page_title="Statistical Reliability Index (SRI)", layout="wid
 
 # === Sidebar for User Inputs ===
 st.sidebar.title("SRI Configuration")
+
 ASSET = st.sidebar.text_input("Asset", value="BTC")
 TF = st.sidebar.selectbox("Time Frame", ["1d", "4h", "1h", "15m"], index=0)
 Bars_to_Fetch = st.sidebar.number_input("Bars to Fetch", min_value=50, max_value=1000, value=252)
@@ -31,11 +32,11 @@ info = Info(constants.MAINNET_API_URL)
 
 # === Fetch BTC Data from 1D Chart ===
 @st.cache_data
-def fetch_btc_data(asset, interval, days):
+def fetch_btc_data(interval=TF, days=Bars_to_Fetch):
     end = int(datetime.now(timezone.utc).timestamp() * 1000)
     start = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
     try:
-        candles = info.candles_snapshot(asset, interval=interval, startTime=start, endTime=end)
+        candles = info.candles_snapshot(ASSET, interval=interval, startTime=start, endTime=end)
         if not candles:
             st.error(f"No candle data [{interval}]")
             return pd.DataFrame()
@@ -44,56 +45,87 @@ def fetch_btc_data(asset, interval, days):
         df.rename(columns={"c": "close", "o": "open", "h": "high", "l": "low", "t": "timestamp"}, inplace=True)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df.set_index("timestamp", inplace=True)
-        return df[["open", "high", "low", "close"]].astype(float).dropna()
+        df = df[["open", "high", "low", "close"]].astype(float).dropna()
+        return df
     except Exception as e:
         st.error(f"Error fetching BTC data: {str(e)}")
         return pd.DataFrame()
 
+# === Statistical Calculations ===
+def calculate_percentile(series, length, percentile):
+    return series.rolling(window=length).apply(lambda x: np.percentile(x, percentile * 100), raw=True)
+
+def calculate_sma(series, length):
+    return series.rolling(window=length).mean()
+
+def calculate_std(series, length):
+    return series.rolling(window=length).std()
+
 # === Calculate SRI ===
 def calculate_sri(df):
     returns = df['close'].pct_change().dropna()
-    cdf_value = returns.rolling(window=length).apply(lambda x: np.percentile(x, cdf * 100), raw=True)
-    mean_price = df['close'].rolling(window=length).mean()
+
+    # CDF Extrapolation
+    cdf_value = calculate_percentile(returns, length, cdf)
+
+    # Bias Factor
+    mean_price = calculate_sma(df['close'], length)
     bias_factor = df['close'] / mean_price
-    std_dev = returns.rolling(window=length).std()
-    mean_return = returns.rolling(window=length).mean()
+
+    # Coefficient of Variation (CV)
+    std_dev = calculate_std(returns, length)
+    mean_return = calculate_sma(returns, length)
     cv = std_dev / mean_return
+
+    # Normalization
     normalized_bias = bias_factor / BF
     normalized_cv = cv / CV
+
+    # SRI Calculation
     sri = -((w1 * cdf_value) + (w2 * normalized_bias) + (w3 * (1 - normalized_cv)))
-    sri_volatility = sri.rolling(window=stability_length).std()
+
+    # SRI Volatility Calculation
+    sri_volatility = calculate_std(sri, stability_length)
+
+    # Chop Mode Identification
     is_chop = sri_volatility > chop_threshold
-    return pd.DataFrame({"SRI": sri, "SRI_Volatility": sri_volatility, "Chop": is_chop}, index=df.index)
+    sri_data = pd.DataFrame({"SRI": sri, "SRI_Volatility": sri_volatility, "Chop": is_chop}, index=df.index)
 
-# === Plot SRI and Price ===
+    return sri_data
+
+# === Plot SRI, Volatility, and BTC Price ===
 def plot_sri(btc_df, sri_df):
-    fig, ax = plt.subplots(3, 1, figsize=(12, 15))
+    plt.figure(figsize=(12, 15))
 
-    # Plot SRI
-    sri_colors = np.where(sri_df['SRI'] >= 1, 'green', 'red')
+    # Plot SRI with Dynamic Coloring
+    plt.subplot(3, 1, 1)
     for i in range(len(sri_df) - 1):
-        ax[0].plot(sri_df.index[i:i+2], sri_df['SRI'].iloc[i:i+2], color=sri_colors[i], linewidth=2)
-    ax[0].axhline(1, color='gray', linestyle='--')
-    ax[0].set_title('Statistical Reliability Index (SRI)')
-    ax[0].set_ylabel('SRI')
+        color = 'green' if sri_df['SRI'].iloc[i] >= 1 else 'red'
+        plt.plot(sri_df.index[i:i+2], sri_df['SRI'].iloc[i:i+2], color=color, linewidth=2)
+    plt.axhline(1, color='gray', linestyle='--')
+    plt.title('Statistical Reliability Index (SRI)')
+    plt.ylabel('SRI')
 
-    # SRI Volatility Plot
-    ax[1].plot(sri_df.index, sri_df['SRI_Volatility'], label='SRI Volatility', color='purple')
-    ax[1].axhline(chop_threshold, color='red', linestyle='--', label='Chop Threshold')
-    ax[1].fill_between(sri_df.index, sri_df['SRI_Volatility'], where=sri_df['Chop'], color='orange', alpha=0.3)
-    ax[1].set_title('SRI Volatility')
-    ax[1].legend()
+    # Plot SRI Volatility
+    plt.subplot(3, 1, 2)
+    plt.plot(sri_df.index, sri_df['SRI_Volatility'], label='SRI Volatility', color='purple', linewidth=2)
+    plt.axhline(chop_threshold, color='red', linestyle='--', label='Chop Threshold')
+    plt.fill_between(sri_df.index, sri_df['SRI_Volatility'], where=sri_df['Chop'], color='orange', alpha=0.3, label='Chop Mode')
+    plt.title('SRI Volatility')
+    plt.ylabel('Volatility')
+    plt.legend()
 
-    # Plot BTC Price
-    ax[2].plot(btc_df.index, btc_df['close'], label='Asset Price', color='black')
-    ax[2].set_title('Asset Price (1D)')
-    ax[2].set_ylabel('Price (USD)')
-    ax[2].legend()
+    # Plot BTC Price as a standard line plot (black)
+    plt.subplot(3, 1, 3)
+    plt.plot(btc_df.index, btc_df['close'], label='Asset Price', color='black', linestyle='--')
+    plt.title('Asset Price (1D)')
+    plt.ylabel('Price (USD)')
+    plt.legend(['Asset Price'])
+    st.pyplot(plt)
 
-    st.pyplot(fig)
-
-# === Main Logic ===
+# === Main Logic with Update Button ===
 st.title("Statistical Reliability Index (SRI) Dashboard")
+
 if st.sidebar.button("Update Chart"):
     st.write("Fetching and calculating SRI data...")
     btc_df = fetch_btc_data(ASSET, TF, Bars_to_Fetch)
