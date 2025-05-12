@@ -14,12 +14,11 @@ st.set_page_config(page_title="Statistical Reliability Index (SRI)", layout="wid
 info = Info(constants.MAINNET_API_URL)
 
 # === Fetch BTC Data from 1D Chart ===
-@st.cache_data
-def fetch_btc_data(interval, days):
+def fetch_btc_data(asset, interval, days):
     end = int(datetime.now(timezone.utc).timestamp() * 1000)
     start = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
     try:
-        candles = info.candles_snapshot("BTC", interval=interval, startTime=start, endTime=end)
+        candles = info.candles_snapshot(asset, interval=interval, startTime=start, endTime=end)
         if not candles:
             st.error(f"No candle data [{interval}]")
             return pd.DataFrame()
@@ -63,7 +62,6 @@ def calculate_sri(df):
 
 # === Plot SRI, Volatility, and BTC Price ===
 def plot_sri(btc_df, sri_df):
-    # Create a figure and axes with subplots
     fig, ax = plt.subplots(3, 1, figsize=(12, 15))
 
     # Plot SRI with Dynamic Coloring
@@ -77,10 +75,7 @@ def plot_sri(btc_df, sri_df):
     # SRI Volatility Plot
     ax[1].plot(sri_df.index, sri_df['SRI_Volatility'], label='SRI Volatility', color='purple', linewidth=2)
     ax[1].axhline(chop_threshold, color='red', linestyle='--', label='Chop Threshold')
-    ax[1].fill_between(
-        sri_df.index, sri_df['SRI_Volatility'],
-        where=sri_df['Chop'], color='orange', alpha=0.3, label='Chop Mode'
-    )
+    ax[1].fill_between(sri_df.index, sri_df['SRI_Volatility'], where=sri_df['Chop'], color='orange', alpha=0.3, label='Chop Mode')
     ax[1].set_title('SRI Volatility')
     ax[1].set_ylabel('Volatility')
     ax[1].legend()
@@ -93,8 +88,6 @@ def plot_sri(btc_df, sri_df):
 
     # Adjust layout to prevent overlap
     plt.tight_layout()
-
-    # Display the plot using Streamlit
     st.pyplot(fig)
 
 # === Sidebar for User Inputs ===
@@ -115,7 +108,7 @@ chop_threshold = st.sidebar.number_input("Chop Threshold", min_value=1, max_valu
 # === Update Chart Button ===
 if st.sidebar.button("Update Chart"):
     st.write("Fetching and calculating SRI data...")
-    btc_df = fetch_btc_data(interval=TF, days=Bars_to_Fetch)
+    btc_df = fetch_btc_data(ASSET, TF, Bars_to_Fetch)
     if not btc_df.empty:
         sri_df = calculate_sri(btc_df)
         st.write("### SRI Data (Last 5 rows)")
@@ -123,4 +116,3 @@ if st.sidebar.button("Update Chart"):
         plot_sri(btc_df, sri_df)
     else:
         st.warning("No data available to display. Please check your settings.")
-        
