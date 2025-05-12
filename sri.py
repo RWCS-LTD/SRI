@@ -148,7 +148,7 @@ if st.sidebar.button("Update Chart"):
 
 # === Main App Logic ===
 st.title("Statistical Reliability Index (SRI) Dashboard")
-btc_df = fetch_btc_data()
+btc_df = fetch_btc_data(ASSET, TF, Bars_to_Fetch)
 
 if not btc_df.empty:
     sri_df = calculate_sri(btc_df)
