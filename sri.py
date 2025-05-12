@@ -27,6 +27,18 @@ CV = st.sidebar.number_input("Coefficient of Variation", min_value=0.1, max_valu
 stability_length = st.sidebar.number_input("Stability Length", min_value=1, max_value=100, value=14)
 chop_threshold = st.sidebar.number_input("Chop Threshold", min_value=1, max_value=100, value=20)
 
+# === Update Chart Button ===
+if st.sidebar.button("Update Chart"):
+    st.write("Fetching and calculating SRI data...")
+    btc_df = fetch_btc_data()
+    if not btc_df.empty:
+        sri_df = calculate_sri(btc_df)
+        st.write("### SRI Data (Last 5 rows)")
+        st.dataframe(sri_df.tail())
+        plot_sri(btc_df, sri_df)
+    else:
+        st.warning("No data available to display. Please check your settings.")
+
 # === Initialize Hyperliquid API ===
 info = Info(constants.MAINNET_API_URL)
 
