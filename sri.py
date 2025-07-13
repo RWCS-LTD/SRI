@@ -134,35 +134,37 @@ def plot_sri(btc_df, sri_df):
     # Display the plots in Streamlit
     st.pyplot(plt)
 
-# === Update Chart Button ===
-if st.sidebar.button("Update Chart"):
+st.title("Statistical Reliability Index (SRI) Dashboard")
+
+# Button to trigger data fetch
+update_data = st.sidebar.button("Update Chart")
+
+# Fetch BTC Data (either on app load or when button is pressed)
+if update_data or "btc_df" not in st.session_state:
     st.write("Fetching and calculating SRI data...")
     btc_df = fetch_btc_data(ASSET, TF, Bars_to_Fetch)
-    if not btc_df.empty:
-        sri_df = calculate_sri(btc_df)
-        st.write("### SRI Data (Last 5 rows)")
-        st.dataframe(sri_df.tail())
-        plot_sri(btc_df, sri_df)
-    else:
-        st.warning("No data available to display. Please check your settings.")
+    st.session_state["btc_df"] = btc_df
+else:
+    btc_df = st.session_state["btc_df"]
 
-# === Main App Logic ===
-st.title("Statistical Reliability Index (SRI) Dashboard")
-btc_df = fetch_btc_data(ASSET, TF, Bars_to_Fetch)
-
+# Check and process
 if not btc_df.empty:
     sri_df = calculate_sri(btc_df)
+
     st.write("### SRI Data (Last 5 rows)")
     st.dataframe(sri_df.tail())
 
-    if sri_df['Chop'].iloc[-1]:
+    # Current Mode display
+    if sri_df["Chop"].iloc[-1]:
         st.success("✅ Current Mode: Chop (No Trade Recommended)")
     else:
-        if sri_df['SRI'].iloc[-1] > 1:
+        if sri_df["SRI"].iloc[-1] > 1:
             st.info("📈 Current Mode: Trending (Long Bias)")
         else:
-            st.warning("📉 Current Mode: Trending (Short Bias)")    
-    
+            st.warning("📉 Current Mode: Trending (Short Bias)")
+
+    # Plot
     plot_sri(btc_df, sri_df)
+
 else:
-    st.warning("No data available to display.")
+    st.warning("No data available to display. Please check your settings.")
