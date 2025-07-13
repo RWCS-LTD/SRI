@@ -154,6 +154,15 @@ if not btc_df.empty:
     sri_df = calculate_sri(btc_df)
     st.write("### SRI Data (Last 5 rows)")
     st.dataframe(sri_df.tail())
+
+    if sri_df['Chop'].iloc[-1]:
+        st.success("✅ Current Mode: Chop (No Trade Recommended)")
+    else:
+        if sri_df['SRI'].iloc[-1] > 1:
+            st.info("📈 Current Mode: Trending (Long Bias)")
+        else:
+            st.warning("📉 Current Mode: Trending (Short Bias)")    
+    
     plot_sri(btc_df, sri_df)
 else:
     st.warning("No data available to display.")
